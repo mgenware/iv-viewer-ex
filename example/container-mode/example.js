@@ -1,4 +1,4 @@
-import ImageViewer from '../../src/ImageViewer';
+const ImageViewer = window.ivViewerEx.ImageViewer;
 
 const images = [{
   small: '../images/1.jpg',

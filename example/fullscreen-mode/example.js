@@ -1,5 +1,4 @@
-import FullScreenViewer from '../../src/FullScreen';
-
+const FullScreenViewer = window.ivViewerEx.FullScreenViewer;
 const viewer = new FullScreenViewer();
 
 Array.from(document.querySelectorAll('.gallery-items')).forEach((elem) => {
