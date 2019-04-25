@@ -8,13 +8,13 @@ import {
   unwrap,
   remove,
   easeOutQuart,
-  imageLoaded,
   clamp,
   assignEvent,
   getTouchPointsDistance,
   ZOOM_CONSTANT,
   MOUSE_WHEEL_COUNT,
 } from './util';
+const imgLoaded = require('imagesloaded');
 
 import Slider from './Slider';
 
@@ -646,7 +646,7 @@ class ImageViewer {
     // hide snap view if open
     this.hideSnapView();
 
-    const onImageLoad = () => {
+    imgLoaded(image, () => {
       // hide the iv loader
       css(ivLoader, { display: 'none' });
 
@@ -666,13 +666,7 @@ class ImageViewer {
 
       // reset the zoom
       this.resetZoom();
-    };
-
-    if (imageLoaded(image)) {
-      onImageLoad();
-    } else {
-      this._events.imageLoad = assignEvent(image, 'load', onImageLoad);
-    }
+    });
   }
   _loadHighResImage(hiResImageSrc) {
     const { imageWrap, container } = this._elements;
@@ -692,22 +686,12 @@ class ImageViewer {
 
     this._elements.image = container.querySelectorAll('.iv-image');
 
-    const onHighResImageLoad = () => {
+    imgLoaded(hiResImage, () => {
       // remove the low size image and set this image as default image
       remove(lowResImg);
       this._elements.image = hiResImage;
       // this._calculateDimensions();
-    };
-
-    if (imageLoaded(hiResImage)) {
-      onHighResImageLoad();
-    } else {
-      this._events.hiResImageLoad = assignEvent(
-        hiResImage,
-        'load',
-        onHighResImageLoad,
-      );
-    }
+    });
   }
   _calculateDimensions() {
     const {

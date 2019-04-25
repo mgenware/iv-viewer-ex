@@ -80,14 +80,6 @@ export function removeClass(el, className) {
   }
 }
 
-// function to check if image is loaded
-export function imageLoaded(img) {
-  return (
-    img.complete &&
-    (typeof img.naturalWidth === 'undefined' || img.naturalWidth !== 0)
-  );
-}
-
 export function toArray(list) {
   if (!(list instanceof NodeList || list instanceof HTMLCollection)) {
     return [list];
