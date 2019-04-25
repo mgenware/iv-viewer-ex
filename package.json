@@ -1,11 +1,11 @@
 {
-  "name": "iv-viewer",
+  "name": "iv-viewer-ex",
   "version": "2.0.0",
   "description": "A zooming and panning plugin inspired by google photos for your web images.",
-  "main": "lib/index.js",
+  "main": "dist/main.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/s-yadav/iv-viewer.git"
+    "url": "https://github.com/mgenware/iv-viewer-ex.git"
   },
   "keywords": [
     "image",
@@ -17,39 +17,30 @@
   "author": "Sudhanshu Yadav",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/s-yadav/iv-viewer/issues"
+    "url": "https://github.com/mgenware/iv-viewer-ex/issues"
   },
-  "homepage": "https://github.com/s-yadav/iv-viewer#readme",
+  "homepage": "https://github.com/mgenware/iv-viewer-ex",
   "scripts": {
-    "start": "yarn copy-assets & parcel example/index.html --out-dir temp",
-    "copy-assets": "cp -R example/ temp",
-    "bundle": "cross-env yarn compile & yarn build-css & yarn bundle-dist",
-    "bundle-dist": "cross-env rollup -c rollup.config.js",
-    "build-css": "node build-css.js",
-    "compile": "cross-env NODE_ENV=production babel src --out-dir lib"
+    "build": "yarn run lint && yarn run clean && cross-env NODE_ENV=production rollup -c",
+    "compile": "tsc",
+    "dev": "yarn run clean && cross-env NODE_ENV=development rollup -c -w",
+    "lint": "tslint --project tsconfig.json --config tslint.json",
+    "clean": "del-cli dist",
+    "test": "yarn build"
   },
   "devDependencies": {
-    "@babel/cli": "^7.2.3",
-    "@babel/core": "^7.3.4",
-    "@babel/plugin-proposal-class-properties": "^7.3.4",
-    "@babel/plugin-proposal-object-rest-spread": "^7.3.4",
-    "@babel/preset-env": "^7.3.4",
-    "babel-eslint": "^9.0.0",
+    "autoprefixer": "^9.5.1",
     "cross-env": "^5.2.0",
-    "cssnano": "^4.1.10",
-    "eslint": "^5.9.0",
-    "eslint-config-airbnb-base": "^13.1.0",
-    "eslint-config-standard": "^12.0.0",
-    "eslint-plugin-import": "^2.14.0",
-    "eslint-plugin-node": "^8.0.0",
-    "eslint-plugin-promise": "^4.0.1",
-    "eslint-plugin-standard": "^4.0.0",
-    "parcel-bundler": "^1.11.0",
-    "rollup": "^1.4.0",
-    "rollup-plugin-babel": "^4.3.2",
-    "rollup-plugin-filesize": "^6.0.1",
-    "rollup-plugin-license": "^0.8.1",
-    "rollup-plugin-uglify": "^6.0.2",
-    "sass": "^1.17.0"
+    "del-cli": "^1.1.0",
+    "node-sass": "^4.11.0",
+    "rollup": "^1.10.1",
+    "rollup-plugin-commonjs": "^9.3.4",
+    "rollup-plugin-node-resolve": "^4.2.3",
+    "rollup-plugin-postcss": "^2.0.3",
+    "rollup-plugin-terser": "^4.0.4",
+    "rollup-plugin-typescript2": "^0.21.0",
+    "tslint": "^5.16.0",
+    "typescript": "^3.4.5",
+    "unique-temp-dir": "^1.0.0"
   }
 }

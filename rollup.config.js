@@ -1,56 +1,50 @@
-import fs from 'fs';
-import babel from 'rollup-plugin-babel';
-import { uglify } from 'rollup-plugin-uglify';
-import fileSize from 'rollup-plugin-filesize';
-import license from 'rollup-plugin-license';
+import typescript from 'rollup-plugin-typescript2';
+import { terser } from 'rollup-plugin-terser';
+import resolve from 'rollup-plugin-node-resolve';
+import commonjs from 'rollup-plugin-commonjs';
+import postcss from 'rollup-plugin-postcss';
+import autoprefixer from 'autoprefixer';
 
-import PACKAGE from './package.json';
-const fullYear = new Date().getFullYear();
+const isProd = process.env.NODE_ENV == 'production';
 
-const banner = `${PACKAGE.name} - ${PACKAGE.version}
-  Author : ${PACKAGE.author}
-  Copyright (c) ${(fullYear !== 2019 ? '2019,' : '')} ${fullYear} to ${PACKAGE.author}, released under the ${PACKAGE.license} license.
-  ${PACKAGE.repository.url}`;
+const plugins = [
+  resolve({
+    module: true,
+    browser: true,
+  }),
+  commonjs(),
+  typescript({ cacheRoot: require('unique-temp-dir')() }),
+];
 
-const babelConfig = JSON.parse(fs.readFileSync('.babelrc'));
+if (isProd) {
+  tsPlugins.push(terser());
+}
 
-const defaultConfig = {
-  input: 'src/dist.js',
-  output: [{
-    file: 'dist/iv-viewer.es.js',
-    format: 'esm',
-    exports: 'default',
-  }, {
-    file: 'dist/iv-viewer.js',
-    format: 'umd',
-    name: 'ImageViewer',
-    exports: 'default',
-  }],
-  external: ['react', 'react-dom'],
-  plugins: [
-    babel({
-      babelrc: false,
-      ...babelConfig,
-    }),
-    fileSize(),
-    license({
-      banner,
-    }),
-  ],
-};
-
-const minConfig = {
-  ...defaultConfig,
-  output: {
-    file: 'dist/iv-viewer.min.js',
-    format: 'umd',
-    name: 'ImageViewer',
-    exports: 'default',
+const tasks = [
+  {
+    input: 'src/main.ts',
+    output: {
+      name: 'ivViewerEx',
+      file: 'dist/main.js',
+      format: 'umd',
+      exports: 'named',
+    },
+    plugins,
   },
-  plugins: [
-    ...defaultConfig.plugins,
-    uglify(),
-  ],
-};
+  {
+    input: 'src/ImageViewer.scss',
+    output: {
+      file: 'dist/iv-viewer.css',
+      format: 'esm',
+    },
+    plugins: [
+      postcss({
+        plugins: [autoprefixer],
+        extract: './dist/iv-viewer.css',
+        extensions: ['.css', '.sss', '.scss']
+      }),
+    ],
+  },
+];
 
-export default [defaultConfig, minConfig];
+export default tasks;

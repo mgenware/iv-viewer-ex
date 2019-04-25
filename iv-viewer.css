@@ -31,10 +31,11 @@
 }
 .iv-fullscreen-close {
   position: absolute;
-  width: 32px;
-  height: 32px;
-  right: 20px;
-  top: 20px;
+  width: 24px;
+  height: 24px;
+  right: 10px;
+  top: 10px;
+  padding: 10px;
   cursor: pointer;
   text-align: center;
   overflow: hidden;
@@ -44,21 +45,23 @@
 .iv-fullscreen-close:after, .iv-fullscreen-close:before {
   content: "";
   height: 4px;
-  width: 32px;
+  width: 24px;
   background: #FFF;
   position: absolute;
   left: 0;
   top: 50%;
-  margin-top: -2px;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 .iv-fullscreen-close:before {
-  transform: rotate(45deg);
+  transform: translate(-50%, -50%) rotate(45deg);
 }
 .iv-fullscreen-close:after {
-  transform: rotate(-45deg);
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 .iv-fullscreen-close:hover {
   transform: rotate(90deg);
+  transform-origin: 50% 50%;
 }
 .iv-snap-view {
   width: 150px;
@@ -70,7 +73,7 @@
   background: black;
   z-index: 100;
   box-sizing: content-box;
-  transition: all ease 400ms;
+  transition: opacity ease 400ms;
   opacity: 0;
 }
 .iv-snap-image-wrap {
@@ -85,8 +88,7 @@
 }
 .iv-snap-image {
   position: relative;
-  -ms-touch-action: none;
-      touch-action: none;
+  touch-action: none;
 }
 .iv-snap-handle {
   box-sizing: border-box;
@@ -139,8 +141,7 @@
   max-width: 100%;
   max-height: 100%;
   position: absolute;
-  -ms-touch-action: none;
-      touch-action: none;
+  touch-action: none;
   transform: translate3d(0, 0, 0);
 }
 .iv-loader {
@@ -165,11 +166,23 @@
   height: 10em;
   border-radius: 50%;
 }
-@keyframes loading-icon {
+@-webkit-keyframes loading-icon {
   0% {
+    -webkit-transform: rotate(0deg);
     transform: rotate(0deg);
   }
   100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
+}
+@keyframes loading-icon {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(360deg);
     transform: rotate(360deg);
   }
 }

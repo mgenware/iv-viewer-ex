@@ -7,7 +7,10 @@ const fullScreenHtml = `
 `;
 
 class FullScreenViewer extends ImageViewer {
-  constructor (options = {}) {
+  _elements: any;
+
+  // @ts-ignore
+  constructor(options = {}) {
     const fullScreenElem = createElement({
       tagName: 'div',
       className: 'iv-fullscreen',
@@ -25,14 +28,14 @@ class FullScreenViewer extends ImageViewer {
 
     this._initFullScreenEvents();
   }
-  _initFullScreenEvents () {
+  _initFullScreenEvents() {
     const { fullScreen } = this._elements;
     const closeBtn = fullScreen.querySelector('.iv-fullscreen-close');
 
     // add close button event
     this._events.onCloseBtnClick = assignEvent(closeBtn, 'click', this.hide);
   }
-  show (imageSrc, hiResImageSrc) {
+  show(imageSrc, hiResImageSrc) {
     // show the element
     css(this._elements.fullScreen, { display: 'block' });
 
@@ -56,8 +59,8 @@ class FullScreenViewer extends ImageViewer {
 
     // remove window event
     this._events.onWindowResize();
-  }
-  destroy () {
+  };
+  destroy() {
     const { fullScreen } = this._elements;
 
     // destroy image viewer

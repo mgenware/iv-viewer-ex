@@ -1,9 +1,17 @@
 import { noop } from './util';
 
 class Slider {
-  constructor (container, {
-    onStart, onMove, onEnd, isSliderEnabled,
-  }) {
+  container: any;
+  isSliderEnabled: any;
+  onStart: any;
+  onMove: any;
+  onEnd: any;
+  touchMoveEvent: any;
+  touchEndEvent: any;
+  sx: any;
+  sy: any;
+
+  constructor(container, { onStart, onMove, onEnd, isSliderEnabled }: any) {
     this.container = container;
     this.isSliderEnabled = isSliderEnabled;
     this.onStart = onStart || noop;
@@ -11,8 +19,10 @@ class Slider {
     this.onEnd = onEnd || noop;
   }
 
-  startHandler = (eStart) => {
-    if (!this.isSliderEnabled()) return;
+  startHandler = eStart => {
+    if (!this.isSliderEnabled()) {
+      return;
+    }
 
     this.removeListeners();
 
@@ -43,10 +53,12 @@ class Slider {
       https://bugs.chromium.org/p/chromium/issues/detail?id=506801
     */
     document.addEventListener('contextmenu', endHandler);
-  }
+  };
 
-  moveHandler = (eMove) => {
-    if (!this.isSliderEnabled()) return;
+  moveHandler = eMove => {
+    if (!this.isSliderEnabled()) {
+      return;
+    }
 
     eMove.preventDefault();
     const { sx, sy, onMove } = this;
@@ -63,31 +75,35 @@ class Slider {
       mx,
       my,
     });
-  }
+  };
 
   endHandler = () => {
-    if (!this.isSliderEnabled()) return;
+    if (!this.isSliderEnabled()) {
+      return;
+    }
     this.removeListeners();
     this.onEnd();
-  }
+  };
 
   // remove previous events if its not removed
   // - Case when while sliding mouse moved out of document and released there
-  removeListeners () {
-    if (!this.touchMoveEvent) return;
+  removeListeners() {
+    if (!this.touchMoveEvent) {
+      return;
+    }
     document.removeEventListener(this.touchMoveEvent, this.moveHandler);
     document.removeEventListener(this.touchEndEvent, this.endHandler);
     document.removeEventListener('contextmenu', this.endHandler);
   }
 
-  init () {
-    ['touchstart', 'mousedown'].forEach((evt) => {
+  init() {
+    ['touchstart', 'mousedown'].forEach(evt => {
       this.container.addEventListener(evt, this.startHandler);
     });
   }
 
-  destroy () {
-    ['touchstart', 'mousedown'].forEach((evt) => {
+  destroy() {
+    ['touchstart', 'mousedown'].forEach(evt => {
       this.container.removeEventListener(evt, this.startHandler);
     });
     this.removeListeners();
