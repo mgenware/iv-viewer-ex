@@ -14,7 +14,10 @@ import {
   ZOOM_CONSTANT,
   MOUSE_WHEEL_COUNT,
 } from './util';
-const imgLoaded = require('imagesloaded');
+import * as imgLoadedProxy from 'imagesloaded';
+// Fix F* dumb rollup cannot handle typescript export
+const imgLoaded: ImagesLoaded.ImagesLoadedConstructor =
+  (imgLoadedProxy as any).default || imgLoadedProxy;
 
 import Slider from './Slider';
 

@@ -8,10 +8,7 @@ import autoprefixer from 'autoprefixer';
 const isProd = process.env.NODE_ENV == 'production';
 
 const plugins = [
-  resolve({
-    module: true,
-    browser: true,
-  }),
+  resolve(),
   commonjs(),
   typescript({ cacheRoot: require('unique-temp-dir')() }),
 ];
