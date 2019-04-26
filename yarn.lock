@@ -3512,6 +3512,11 @@ terser@^3.14.1:
     source-map "~0.6.1"
     source-map-support "~0.5.10"
 
+throw-if-arg-empty@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/throw-if-arg-empty/-/throw-if-arg-empty-2.0.1.tgz#e3c949b8a231a775586e574f19a8c9c6aee7d3ad"
+  integrity sha512-OPiGNinTw70VojY/LS+kGq1jIJRs1KiGZSMs2CjzQMqDvxcxi50I9u1XrNrEHAvDEKKsVn39DXyMDE2lNL26Vw==
+
 timed-out@^4.0.0:
   version "4.0.1"
   resolved "https://registry.yarnpkg.com/timed-out/-/timed-out-4.0.1.tgz#f32eacac5a175bea25d7fab565ab3ed8741ef56f"

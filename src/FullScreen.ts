@@ -1,4 +1,11 @@
-import { createElement, assignEvent, css, remove, removeCss } from './util';
+import {
+  createElement,
+  assignEvent,
+  css,
+  remove,
+  removeCss,
+  mustQuerySelector,
+} from './util';
 import ImageViewer from './ImageViewer';
 
 const fullScreenHtml = `
@@ -28,16 +35,26 @@ class FullScreenViewer extends ImageViewer {
 
     this._initFullScreenEvents();
   }
+
   _initFullScreenEvents() {
     const { fullScreen } = this._elements;
-    const closeBtn = fullScreen.querySelector('.iv-fullscreen-close');
+    if (!fullScreen) {
+      return;
+    }
+    const closeBtn = mustQuerySelector(fullScreen, '.iv-fullscreen-close');
 
     // add close button event
     this._events.onCloseBtnClick = assignEvent(closeBtn, 'click', this.hide);
   }
-  show(imageSrc, hiResImageSrc) {
+
+  show(imageSrc: string, hiResImageSrc: string) {
+    const { fullScreen } = this._elements;
+    if (!fullScreen) {
+      return;
+    }
+
     // show the element
-    css(this._elements.fullScreen, { display: 'block' });
+    css(fullScreen, { display: 'block' });
 
     // if image source is provide load image source
     if (imageSrc) {
@@ -48,20 +65,28 @@ class FullScreenViewer extends ImageViewer {
     this._events.onWindowResize = assignEvent(window, 'resize', this.refresh);
 
     // disable scroll on html
-    css(document.querySelector('html'), { overflow: 'hidden' });
+    css(document.querySelector('html') as HTMLElement, { overflow: 'hidden' });
   }
   hide = () => {
+    const { fullScreen } = this._elements;
+    if (!fullScreen) {
+      return;
+    }
+
     // hide the fullscreen
-    css(this._elements.fullScreen, { display: 'none' });
+    css(fullScreen, { display: 'none' });
 
     // enable scroll
-    removeCss(document.querySelector('html'), 'overflow');
+    removeCss(document.querySelector('html') as HTMLElement, 'overflow');
 
     // remove window event
     this._events.onWindowResize();
   };
   destroy() {
     const { fullScreen } = this._elements;
+    if (!fullScreen) {
+      return;
+    }
 
     // destroy image viewer
     super.destroy();

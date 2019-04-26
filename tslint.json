@@ -15,7 +15,8 @@
     "max-line-length": false,
     "one-variable-per-declaration": false,
     "arrow-parens": [true, "ban-single-arg-parens"],
-    "semicolon": false
+    "semicolon": false,
+    "interface-name": false
   },
   "rulesDirectory": []
 }

@@ -38,7 +38,7 @@ const imageViewHtml = `
 `;
 const DATA_VIEWER = '_image_viewer';
 
-export interface IPoint {
+export interface Point {
   x: number;
   y: number;
 }
@@ -80,6 +80,8 @@ export default class ImageViewer {
 
     image?: HTMLImageElement;
     snapImage?: HTMLImageElement;
+
+    fullScreen?: HTMLElement; // Used by FullScreen.ts
   };
   _options: InternalOptions;
   _events: any;
@@ -871,7 +873,7 @@ export default class ImageViewer {
     this.zoom(zoomValue);
   }
 
-  zoom = (perc: number, point?) => {
+  zoom = (perc: number, point?: Point) => {
     const { _options, _elements, _state } = this;
     const {
       zoomValue: curPerc,
@@ -906,6 +908,10 @@ export default class ImageViewer {
     const baseBottom = containerDim.h - baseTop;
 
     const zoom = () => {
+      // point is guaranteed not undefined above, TypeScript just loses analysis cross function boundaries
+      if (!point) {
+        return;
+      }
       step++;
       if (step < 16) {
         this._frames.zoomFrame = requestAnimationFrame(zoom);

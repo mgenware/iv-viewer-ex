@@ -114,7 +114,7 @@ export function css(
 
   elmArray.forEach(element => {
     Object.entries(properties).forEach(([key, value]) => {
-      element.style[key] = value;
+      (element.style as any)[key] = value;
     });
   });
 
