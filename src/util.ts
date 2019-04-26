@@ -1,6 +1,6 @@
 // constants
 export const ZOOM_CONSTANT = 15; // increase or decrease value for zoom on mouse wheel
-export const MOUSE_WHEEL_COUNT = 5; // A mouse delta after which it should stop preventing default behaviour of mouse wheel
+export const MOUSE_WHEEL_COUNT = 5; // A mouse delta after which it should stop preventing default behavior of mouse wheel
 
 export function noop() {
   /* empty */
@@ -13,13 +13,26 @@ export function noop() {
     c : changed value,
     d : duration
 */
-export function easeOutQuart(t, b, c, d) {
+export function easeOutQuart(t: number, b: number, c: number, d: number) {
   t /= d;
   t -= 1;
   return -c * (t * t * t * t - 1) + b;
 }
 
-export function createElement(options) {
+export interface CreateElementOptions {
+  tagName: string;
+  parent: HTMLElement;
+
+  id?: string;
+  html?: string;
+  className?: string;
+  src?: string;
+  style?: string;
+  child?: HTMLElement;
+  insertBefore?: HTMLElement;
+}
+
+export function createElement(options: CreateElementOptions) {
   const elem = document.createElement(options.tagName);
   if (options.id) {
     elem.id = options.id;
@@ -30,8 +43,8 @@ export function createElement(options) {
   if (options.className) {
     elem.className = options.className;
   }
-  if (options.src) {
-    elem.src = options.src;
+  if (options.src && options.tagName.toLowerCase() === 'img') {
+    (elem as HTMLImageElement).src = options.src;
   }
   if (options.style) {
     elem.style.cssText = options.style;
@@ -53,7 +66,7 @@ export function createElement(options) {
 }
 
 // method to add class
-export function addClass(el, className) {
+export function addClass(el: HTMLElement, className: string) {
   const classNameAry = className.split(' ');
 
   if (classNameAry.length > 1) {
@@ -61,12 +74,12 @@ export function addClass(el, className) {
   } else if (el.classList) {
     el.classList.add(className);
   } else {
-    el.className += ` ${className}`; // eslint-disable-line no-param-reassign
+    el.className += ` ${className}`;
   }
 }
 
 // method to remove class
-export function removeClass(el, className) {
+export function removeClass(el: HTMLElement, className: string) {
   const classNameAry = className.split(' ');
   if (classNameAry.length > 1) {
     classNameAry.forEach(classItem => removeClass(el, classItem));
@@ -76,48 +89,46 @@ export function removeClass(el, className) {
     el.className = el.className.replace(
       new RegExp(`(^|\\b)${className.split(' ').join('|')}(\\b|$)`, 'gi'),
       ' ',
-    ); // eslint-disable-line no-param-reassign
+    );
   }
 }
 
-export function toArray(list) {
+export function toArray(
+  list: NodeList | HTMLCollection | HTMLElement,
+): HTMLElement[] {
   if (!(list instanceof NodeList || list instanceof HTMLCollection)) {
     return [list];
   }
   return Array.prototype.slice.call(list);
 }
 
-export function assign(target, ...rest) {
-  rest.forEach(obj => {
-    Object.keys(obj).forEach(key => {
-      target[key] = obj[key];
-    });
-  });
-  return target;
-}
-
-export function css(elements, properties) {
+export function css(
+  elements: NodeList | HTMLCollection | HTMLElement,
+  properties: string | { [key: string]: string | number },
+): string | number | undefined {
   const elmArray = toArray(elements);
 
   if (typeof properties === 'string') {
-    return window.getComputedStyle(elmArray[0])[properties];
+    return window.getComputedStyle(elmArray[0]).getPropertyValue(properties);
   }
 
   elmArray.forEach(element => {
-    Object.keys(properties).forEach(key => {
-      const value = properties[key];
-      element.style[key] = value; // eslint-disable-line no-param-reassign
+    Object.entries(properties).forEach(([key, value]) => {
+      element.style[key] = value;
     });
   });
 
   return undefined;
 }
 
-export function removeCss(element, property) {
+export function removeCss(element: HTMLElement, property: string) {
   element.style.removeProperty(property);
 }
 
-export function wrap(element, { tag = 'div', className, id, style }: any) {
+export function wrap(
+  element: HTMLElement,
+  { tag = 'div', className, id, style }: any,
+) {
   const wrapper = document.createElement(tag);
   if (className) {
     wrapper.className = className;
@@ -128,49 +139,53 @@ export function wrap(element, { tag = 'div', className, id, style }: any) {
   if (style) {
     wrapper.style = style;
   }
-  element.parentNode.insertBefore(wrapper, element);
-  element.parentNode.removeChild(element);
+  if (element.parentNode) {
+    element.parentNode.insertBefore(wrapper, element);
+    element.parentNode.removeChild(element);
+  }
   wrapper.appendChild(element);
   return wrapper;
 }
 
-export function unwrap(element) {
+export function unwrap(element: HTMLElement) {
   const parent = element.parentNode;
-
-  if (parent !== document.body) {
+  if (parent && parent !== document.body && parent.parentNode) {
     parent.parentNode.insertBefore(element, parent);
     parent.parentNode.removeChild(parent);
   }
 }
 
-export function remove(elements) {
+export function remove(elements: NodeList | HTMLCollection | HTMLElement) {
   const elmArray = toArray(elements);
   elmArray.forEach(element => {
-    element.parentNode.removeChild(element);
+    if (element.parentNode) {
+      element.parentNode.removeChild(element);
+    }
   });
 }
 
-export function clamp(num, min, max) {
+export function clamp(num: number, min: number, max: number) {
   return Math.min(Math.max(num, min), max);
 }
 
-export function assignEvent(element, events, handler) {
-  if (typeof events === 'string') {
-    events = [events];
-  }
-
-  events.forEach(event => {
+export function assignEvent(
+  element: HTMLElement,
+  events: string | string[],
+  handler: EventListenerOrEventListenerObject,
+) {
+  const eventList = typeof events === 'string' ? [events] : events;
+  eventList.forEach(event => {
     element.addEventListener(event, handler);
   });
 
   return () => {
-    events.forEach(event => {
+    eventList.forEach(event => {
       element.removeEventListener(event, handler);
     });
   };
 }
 
-export function getTouchPointsDistance(touches) {
+export function getTouchPointsDistance(touches: Touch[]) {
   const touch0 = touches[0];
   const touch1 = touches[1];
   return Math.sqrt(
