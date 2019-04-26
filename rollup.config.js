@@ -14,7 +14,7 @@ const plugins = [
 ];
 
 if (isProd) {
-  tsPlugins.push(terser());
+  plugins.push(terser());
 }
 
 const tasks = [
