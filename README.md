@@ -22,10 +22,16 @@ import {
   ImageViewer,
   FullScreenViewer,
 } from 'iv-viewer-ex';
+
+// Style file
+import 'iv-viewer-ex/dist/main.css';
 ```
 
 Browsers:
 ```html
+<!-- Style file -->
+<link href="./iv-viewer-ex/dist/main.css" rel="stylesheet" type="text/css" />
+
 <script src="./iv-viewer-ex/dist/main.js"></script>
 <script>
   const {

@@ -31,13 +31,13 @@ const tasks = [
   {
     input: 'src/ImageViewer.scss',
     output: {
-      file: 'dist/iv-viewer.css',
+      file: 'dist/main.css',
       format: 'esm',
     },
     plugins: [
       postcss({
         plugins: [autoprefixer],
-        extract: './dist/iv-viewer.css',
+        extract: './dist/main.css',
         extensions: ['.css', '.sss', '.scss']
       }),
     ],
