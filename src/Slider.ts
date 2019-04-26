@@ -1,17 +1,43 @@
 import { noop } from './util';
+import { throwIfFalsy } from 'throw-if-arg-empty';
 
-class Slider {
-  container: any;
-  isSliderEnabled: any;
-  onStart: any;
-  onMove: any;
-  onEnd: any;
-  touchMoveEvent: any;
-  touchEndEvent: any;
+export interface SliderPosition {
+  x?: number;
+  y?: number;
+  mx?: number;
+  my?: number;
+  dx?: number;
+  dy?: number;
+}
+
+export type SliderPositionEvent = (
+  e?: MouseEvent | TouchEvent,
+  position?: SliderPosition,
+) => void;
+
+export interface SliderOptions {
+  onStart?: SliderPositionEvent;
+  onMove?: SliderPositionEvent;
+  onEnd?: () => void;
+  isSliderEnabled: () => boolean;
+}
+
+export default class Slider {
+  container: HTMLElement;
+  isSliderEnabled: () => boolean;
+  onStart: SliderPositionEvent;
+  onMove: SliderPositionEvent;
+  onEnd: () => void;
+  touchMoveEvent?: string;
+  touchEndEvent?: string;
   sx: any;
   sy: any;
 
-  constructor(container, { onStart, onMove, onEnd, isSliderEnabled }: any) {
+  constructor(
+    container: HTMLElement,
+    { onStart, onMove, onEnd, isSliderEnabled }: SliderOptions,
+  ) {
+    throwIfFalsy(container, 'container');
     this.container = container;
     this.isSliderEnabled = isSliderEnabled;
     this.onStart = onStart || noop;
@@ -19,62 +45,82 @@ class Slider {
     this.onEnd = onEnd || noop;
   }
 
-  startHandler = eStart => {
+  startHandler: SliderPositionEvent = eStart => {
     if (!this.isSliderEnabled()) {
       return;
     }
 
     this.removeListeners();
+    if (eStart) {
+      eStart.preventDefault();
 
-    eStart.preventDefault();
+      const { moveHandler, endHandler, onStart } = this;
+      const isTouchEvent = eStart.type === 'touchstart';
 
-    const { moveHandler, endHandler, onStart } = this;
+      this.touchMoveEvent = isTouchEvent ? 'touchmove' : 'mousemove';
+      this.touchEndEvent = isTouchEvent ? 'touchend' : 'mouseup';
 
-    const isTouchEvent = eStart.type === 'touchstart';
+      this.sx = isTouchEvent
+        ? (eStart as TouchEvent).touches[0].clientX
+        : (eStart as MouseEvent).clientX;
 
-    this.touchMoveEvent = isTouchEvent ? 'touchmove' : 'mousemove';
-    this.touchEndEvent = isTouchEvent ? 'touchend' : 'mouseup';
+      this.sy = isTouchEvent
+        ? (eStart as TouchEvent).touches[0].clientY
+        : (eStart as MouseEvent).clientY;
 
-    this.sx = isTouchEvent ? eStart.touches[0].clientX : eStart.clientX;
+      onStart(eStart, {
+        x: this.sx,
+        y: this.sy,
+      });
 
-    this.sy = isTouchEvent ? eStart.touches[0].clientY : eStart.clientY;
-
-    onStart(eStart, {
-      x: this.sx,
-      y: this.sy,
-    });
-
-    // add listeners
-    document.addEventListener(this.touchMoveEvent, moveHandler);
-    document.addEventListener(this.touchEndEvent, endHandler);
-    /*
+      // add listeners
+      if (this.touchMoveEvent) {
+        document.addEventListener(
+          this.touchMoveEvent,
+          moveHandler as EventListener,
+        );
+      }
+      if (this.touchEndEvent) {
+        document.addEventListener(
+          this.touchEndEvent,
+          endHandler as EventListener,
+        );
+      }
+      /*
       add end handler in context menu as well.
       As mouseup event is not trigger on context menu open
       https://bugs.chromium.org/p/chromium/issues/detail?id=506801
     */
-    document.addEventListener('contextmenu', endHandler);
+      document.addEventListener('contextmenu', endHandler);
+    }
   };
 
-  moveHandler = eMove => {
+  moveHandler: SliderPositionEvent = eMove => {
     if (!this.isSliderEnabled()) {
       return;
     }
 
-    eMove.preventDefault();
-    const { sx, sy, onMove } = this;
+    if (eMove) {
+      eMove.preventDefault();
+      const { sx, sy, onMove } = this;
 
-    const isTouchEvent = this.touchMoveEvent === 'touchmove';
+      const isTouchEvent = this.touchMoveEvent === 'touchmove';
 
-    // get the coordinates
-    const mx = isTouchEvent ? eMove.touches[0].clientX : eMove.clientX;
-    const my = isTouchEvent ? eMove.touches[0].clientY : eMove.clientY;
+      // get the coordinates
+      const mx = isTouchEvent
+        ? (eMove as TouchEvent).touches[0].clientX
+        : (eMove as MouseEvent).clientX;
+      const my = isTouchEvent
+        ? (eMove as TouchEvent).touches[0].clientY
+        : (eMove as MouseEvent).clientY;
 
-    onMove(eMove, {
-      dx: mx - sx,
-      dy: my - sy,
-      mx,
-      my,
-    });
+      onMove(eMove, {
+        dx: mx - sx,
+        dy: my - sy,
+        mx,
+        my,
+      });
+    }
   };
 
   endHandler = () => {
@@ -91,23 +137,28 @@ class Slider {
     if (!this.touchMoveEvent) {
       return;
     }
-    document.removeEventListener(this.touchMoveEvent, this.moveHandler);
-    document.removeEventListener(this.touchEndEvent, this.endHandler);
+    if (this.touchMoveEvent) {
+      document.removeEventListener(this.touchMoveEvent, this
+        .moveHandler as EventListener);
+    }
+    if (this.touchEndEvent) {
+      document.removeEventListener(this.touchEndEvent, this
+        .endHandler as EventListener);
+    }
     document.removeEventListener('contextmenu', this.endHandler);
   }
 
   init() {
     ['touchstart', 'mousedown'].forEach(evt => {
-      this.container.addEventListener(evt, this.startHandler);
+      this.container.addEventListener(evt, this.startHandler as EventListener);
     });
   }
 
   destroy() {
     ['touchstart', 'mousedown'].forEach(evt => {
-      this.container.removeEventListener(evt, this.startHandler);
+      this.container.removeEventListener(evt, this
+        .startHandler as EventListener);
     });
     this.removeListeners();
   }
 }
-
-export default Slider;

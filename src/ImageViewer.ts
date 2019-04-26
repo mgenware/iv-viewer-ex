@@ -13,13 +13,14 @@ import {
   getTouchPointsDistance,
   ZOOM_CONSTANT,
   MOUSE_WHEEL_COUNT,
+  mustQuerySelector,
 } from './util';
 import * as imgLoadedProxy from 'imagesloaded';
 // Fix F* dumb rollup cannot handle typescript export
 const imgLoaded: ImagesLoaded.ImagesLoadedConstructor =
   (imgLoadedProxy as any).default || imgLoadedProxy;
 
-import Slider from './Slider';
+import Slider, { SliderPosition } from './Slider';
 
 const imageViewHtml = `
   <div class="iv-loader"></div>
@@ -35,9 +36,32 @@ const imageViewHtml = `
     <div class="iv-image-wrap" ></div>
   </div>
 `;
+const DATA_VIEWER = '_image_viewer';
 
-class ImageViewer {
-  static defaults = {
+export interface IPoint {
+  x: number;
+  y: number;
+}
+
+export interface ImageViewerOptions {
+  zoomValue?: number;
+  maxZoom?: number;
+  refreshOnResize?: boolean;
+  zoomOnMouseWheel?: boolean;
+  snapView?: boolean;
+}
+
+// Internal option type used when ImageViewerOptions properties are set to default
+interface InternalOptions {
+  zoomValue: number;
+  maxZoom: number;
+  refreshOnResize: boolean;
+  zoomOnMouseWheel: boolean;
+  snapView: boolean;
+}
+
+export default class ImageViewer {
+  static defaults: InternalOptions = {
     zoomValue: 100,
     snapView: true,
     maxZoom: 500,
@@ -45,28 +69,40 @@ class ImageViewer {
     zoomOnMouseWheel: true,
   };
 
-  _elements: any;
-  _options: any;
+  _elements: {
+    container: HTMLElement;
+    domElement: HTMLElement;
+    snapView: HTMLElement;
+    snapImageWrap: HTMLElement;
+    imageWrap: HTMLElement;
+    snapHandle: HTMLElement;
+    zoomHandle: HTMLElement;
+
+    image?: HTMLImageElement;
+    snapImage?: HTMLImageElement;
+  };
+  _options: InternalOptions;
   _events: any;
   _frames: any;
-  _sliders: any;
+  _sliders: {
+    imageSlider: Slider;
+    snapSlider: Slider;
+    zoomSlider: Slider;
+  };
   _state: any;
-  _images: any;
+  _images: {
+    imageSrc: string;
+    hiResImageSrc: string;
+  };
   _ev: any;
 
-  constructor(element, options = {}) {
+  constructor(element: HTMLElement, options: ImageViewerOptions = {}) {
     const {
       container,
       domElement,
       imageSrc,
       hiResImageSrc,
     } = this._findContainerAndImageSrc(element);
-
-    // containers for elements
-    this._elements = {
-      container,
-      domElement,
-    };
 
     this._options = { ...ImageViewer.defaults, ...options };
 
@@ -75,9 +111,6 @@ class ImageViewer {
 
     // container for all timeout and frames
     this._frames = {};
-
-    // container for all sliders
-    this._sliders = {};
 
     // maintain current state
     this._state = {
@@ -89,38 +122,71 @@ class ImageViewer {
       hiResImageSrc,
     };
 
-    this._init();
+    // initialize the dom elements
+    this._elements = {
+      ...this._initDom(container),
+      container,
+      domElement,
+    };
+
+    // initialize slider
+    const imageSlider = this._initImageSlider();
+    const snapSlider = this._initSnapSlider();
+    const zoomSlider = this._initZoomSlider();
+    this._sliders = {
+      imageSlider,
+      snapSlider,
+      zoomSlider,
+    };
+
+    // enable pinch and zoom feature for touch screens
+    this._pinchAndZoom();
+
+    // enable scroll zoom interaction
+    this._scrollZoom();
+
+    // enable double tap to zoom interaction
+    this._doubleTapToZoom();
+
+    // initialize events
+    this._initEvents();
 
     if (imageSrc) {
       this._loadImages();
     }
 
     // store reference of imageViewer in domElement
-    domElement._imageViewer = this;
+    domElement.dataset[DATA_VIEWER] = 'enabled';
   }
 
-  _findContainerAndImageSrc(element) {
-    let domElement = element;
-    let imageSrc, hiResImageSrc;
+  _findContainerAndImageSrc(element: HTMLElement | string) {
+    let domElement: HTMLElement | null;
+    let imageSrc: string, hiResImageSrc: string;
 
     if (typeof element === 'string') {
-      domElement = document.querySelector(element);
+      domElement = document.querySelector(element) as HTMLElement | null;
+    } else {
+      domElement = element;
+    }
+
+    if (!domElement) {
+      throw new Error(`Dom element "${element}" not found`);
     }
 
     // throw error if imageViewer is already assigned
-    if (domElement._imageViewer) {
+    if (domElement.dataset[DATA_VIEWER]) {
       throw new Error(
         'An image viewer is already being initiated on the element.',
       );
     }
 
-    let container = element;
-
-    if (domElement.tagName === 'IMG') {
-      imageSrc = domElement.src;
+    let container = domElement;
+    if (domElement.tagName.toLowerCase() === 'img') {
+      imageSrc = (domElement as HTMLImageElement).src || '';
       hiResImageSrc =
         domElement.getAttribute('high-res-src') ||
-        domElement.getAttribute('data-high-res-src');
+        domElement.getAttribute('data-high-res-src') ||
+        '';
 
       // wrap the image with iv-container div
       container = wrap(domElement, {
@@ -136,10 +202,13 @@ class ImageViewer {
       });
     } else {
       imageSrc =
-        domElement.getAttribute('src') || domElement.getAttribute('data-src');
+        domElement.getAttribute('src') ||
+        domElement.getAttribute('data-src') ||
+        '';
       hiResImageSrc =
         domElement.getAttribute('high-res-src') ||
-        domElement.getAttribute('data-high-res-src');
+        domElement.getAttribute('data-high-res-src') ||
+        '';
     }
 
     return {
@@ -150,31 +219,7 @@ class ImageViewer {
     };
   }
 
-  _init() {
-    // initialize the dom elements
-    this._initDom();
-
-    // initialize slider
-    this._initImageSlider();
-    this._initSnapSlider();
-    this._initZoomSlider();
-
-    // enable pinch and zoom feature for touch screens
-    this._pinchAndZoom();
-
-    // enable scroll zoom interaction
-    this._scrollZoom();
-
-    // enable double tap to zoom interaction
-    this._doubleTapToZoom();
-
-    // initialize events
-    this._initEvents();
-  }
-
-  _initDom() {
-    const { container } = this._elements;
-
+  _initDom(container: HTMLElement) {
     // add image-viewer layout elements
     createElement({
       tagName: 'div',
@@ -192,22 +237,21 @@ class ImageViewer {
     }
 
     // save references for later use
-    this._elements = {
-      ...this._elements,
-      snapView: container.querySelector('.iv-snap-view'),
-      snapImageWrap: container.querySelector('.iv-snap-image-wrap'),
-      imageWrap: container.querySelector('.iv-image-wrap'),
-      snapHandle: container.querySelector('.iv-snap-handle'),
-      zoomHandle: container.querySelector('.iv-zoom-handle'),
+    return {
+      snapView: mustQuerySelector(container, '.iv-snap-view'),
+      snapImageWrap: mustQuerySelector(container, '.iv-snap-image-wrap'),
+      imageWrap: mustQuerySelector(container, '.iv-image-wrap'),
+      snapHandle: mustQuerySelector(container, '.iv-snap-handle'),
+      zoomHandle: mustQuerySelector(container, '.iv-zoom-handle'),
     };
   }
 
-  _initImageSlider() {
+  _initImageSlider(): Slider {
     const { _elements } = this;
-
     const { imageWrap } = _elements;
 
-    let positions, currentPos;
+    let positions: [SliderPosition | undefined, SliderPosition | undefined],
+      currentPos: SliderPosition | undefined;
 
     /* Add slide interaction to image */
     const imageSlider = new Slider(imageWrap, {
@@ -220,7 +264,6 @@ class ImageViewer {
 
         // clear all animation frame and interval
         this._clearFrames();
-
         snapSlider.onStart();
 
         // reset positions
@@ -228,8 +271,9 @@ class ImageViewer {
         currentPos = undefined;
 
         this._frames.slideMomentumCheck = setInterval(() => {
-          if (!currentPos) return;
-
+          if (!currentPos) {
+            return;
+          }
           positions.shift();
           positions.push({
             x: currentPos.mx,
@@ -240,15 +284,22 @@ class ImageViewer {
       onMove: (e, position) => {
         const { snapImageDim } = this._state;
         const { snapSlider } = this._sliders;
+
         const imageCurrentDim = this._getImageCurrentDim();
         currentPos = position;
 
+        if (!position) {
+          return;
+        }
         snapSlider.onMove(e, {
-          dx: (-position.dx * snapImageDim.w) / imageCurrentDim.w,
-          dy: (-position.dy * snapImageDim.h) / imageCurrentDim.h,
+          dx: (-(position.dx || NaN) * snapImageDim.w) / imageCurrentDim.w,
+          dy: (-(position.dy || NaN) * snapImageDim.h) / imageCurrentDim.h,
         });
       },
       onEnd: () => {
+        if (!positions[0] || !positions[1] || !currentPos) {
+          return;
+        }
         const { snapImageDim } = this._state;
         const { snapSlider } = this._sliders;
         const imageCurrentDim = this._getImageCurrentDim();
@@ -256,10 +307,10 @@ class ImageViewer {
         // clear all animation frame and interval
         this._clearFrames();
 
-        let step, positionX, positionY;
+        let step: number, positionX: number, positionY: number;
 
-        const xDiff = positions[1].x - positions[0].x;
-        const yDiff = positions[1].y - positions[0].y;
+        const xDiff = (positions[1].x || NaN) - (positions[0].x || NaN);
+        const yDiff = (positions[1].y || NaN) - (positions[0].y || NaN);
 
         const momentum = () => {
           if (step <= 60) {
@@ -269,7 +320,7 @@ class ImageViewer {
           positionX += easeOutQuart(step, xDiff / 3, -xDiff / 3, 60);
           positionY += easeOutQuart(step, yDiff / 3, -yDiff / 3, 60);
 
-          snapSlider.onMove(null, {
+          snapSlider.onMove(undefined, {
             dx: -((positionX * snapImageDim.w) / imageCurrentDim.w),
             dy: -((positionY * snapImageDim.h) / imageCurrentDim.h),
           });
@@ -279,8 +330,8 @@ class ImageViewer {
 
         if (Math.abs(xDiff) > 30 || Math.abs(yDiff) > 30) {
           step = 1;
-          positionX = currentPos.dx;
-          positionY = currentPos.dy;
+          positionX = currentPos.dx || NaN;
+          positionY = currentPos.dy || NaN;
 
           momentum();
         }
@@ -288,14 +339,12 @@ class ImageViewer {
     });
 
     imageSlider.init();
-
-    this._sliders.imageSlider = imageSlider;
+    return imageSlider;
   }
 
-  _initSnapSlider() {
+  _initSnapSlider(): Slider {
     const { snapHandle } = this._elements;
-
-    let startHandleTop, startHandleLeft;
+    let startHandleTop: number, startHandleLeft: number;
 
     const snapSlider = new Slider(snapHandle, {
       isSliderEnabled: () => {
@@ -304,14 +353,17 @@ class ImageViewer {
       onStart: () => {
         const { slideMomentumCheck, sliderMomentumFrame } = this._frames;
 
-        startHandleTop = parseFloat(css(snapHandle, 'top'));
-        startHandleLeft = parseFloat(css(snapHandle, 'left'));
+        startHandleTop = parseFloat(css(snapHandle, 'top') as string);
+        startHandleLeft = parseFloat(css(snapHandle, 'left') as string);
 
         // stop momentum on image
         clearInterval(slideMomentumCheck);
         cancelAnimationFrame(sliderMomentumFrame);
       },
       onMove: (_, position) => {
+        if (!position) {
+          return;
+        }
         const { snapHandleDim, snapImageDim } = this._state;
         const { image } = this._elements;
 
@@ -329,8 +381,16 @@ class ImageViewer {
         const minLeft = Math.min(0, startHandleLeft);
         const minTop = Math.min(0, startHandleTop);
 
-        const left = clamp(startHandleLeft + position.dx, minLeft, maxLeft);
-        const top = clamp(startHandleTop + position.dy, minTop, maxTop);
+        const left = clamp(
+          startHandleLeft + (position.dx || NaN),
+          minLeft,
+          maxLeft,
+        );
+        const top = clamp(
+          startHandleTop + (position.dy || NaN),
+          minTop,
+          maxTop,
+        );
 
         const imgLeft = (-left * imageCurrentDim.w) / snapImageDim.w;
         const imgTop = (-top * imageCurrentDim.h) / snapImageDim.h;
@@ -340,25 +400,25 @@ class ImageViewer {
           top: `${top}px`,
         });
 
-        css(image, {
-          left: `${imgLeft}px`,
-          top: `${imgTop}px`,
-        });
+        if (image) {
+          css(image, {
+            left: `${imgLeft}px`,
+            top: `${imgTop}px`,
+          });
+        }
       },
     });
 
     snapSlider.init();
-
-    this._sliders.snapSlider = snapSlider;
+    return snapSlider;
   }
 
-  _initZoomSlider() {
+  _initZoomSlider(): Slider {
     const { snapView, zoomHandle } = this._elements;
-
     // zoom in zoom out using zoom handle
-    const sliderElm = snapView.querySelector('.iv-zoom-slider');
+    const sliderElm = mustQuerySelector(snapView, '.iv-zoom-slider');
 
-    let leftOffset, handleWidth;
+    let leftOffset: number, handleWidth: number;
 
     // on zoom slider we have to follow the mouse and set the handle to its position.
     const zoomSlider = new Slider(sliderElm, {
@@ -367,10 +427,9 @@ class ImageViewer {
       },
       onStart: eStart => {
         const { zoomSlider: slider } = this._sliders;
-
         leftOffset =
           sliderElm.getBoundingClientRect().left + document.body.scrollLeft;
-        handleWidth = parseInt(css(zoomHandle, 'width'), 10);
+        handleWidth = parseInt(css(zoomHandle, 'width') || '', 10);
 
         // move the handle to current mouse position
         slider.onMove(eStart);
@@ -378,9 +437,10 @@ class ImageViewer {
       onMove: e => {
         const { maxZoom } = this._options;
         const { zoomSliderLength } = this._state;
-
-        const pageX = e.pageX !== undefined ? e.pageX : e.touches[0].pageX;
-
+        const pageX =
+          (e as any).pageX !== undefined
+            ? (e as MouseEvent).pageX
+            : (e as TouchEvent).touches[0].pageX;
         const newLeft = clamp(
           pageX - leftOffset - handleWidth / 2,
           0,
@@ -388,13 +448,12 @@ class ImageViewer {
         );
 
         const zoomValue = 100 + ((maxZoom - 100) * newLeft) / zoomSliderLength;
-
         this.zoom(zoomValue);
       },
     });
 
     zoomSlider.init();
-    this._sliders.zoomSlider = zoomSlider;
+    return zoomSlider;
   }
 
   _initEvents() {
@@ -408,7 +467,6 @@ class ImageViewer {
 
   _snapViewEvents() {
     const { imageWrap, snapView } = this._elements;
-
     // show snapView on mouse move
     this._events.snapViewOnMouseMove = assignEvent(
       imageWrap,
@@ -443,7 +501,7 @@ class ImageViewer {
     const { imageWrap, container } = this._elements;
 
     // apply pinch and zoom feature
-    const onPinchStart = eStart => {
+    const onPinchStart = (eStart: TouchEvent) => {
       const { loaded, zoomValue: startZoomValue } = this._state;
       const { _events: events } = this;
 
@@ -475,11 +533,8 @@ class ImageViewer {
           (contOffset.top + document.body.scrollTop),
       };
 
-      const moveListener = eMove => {
-        // eMove.preventDefault();
-
+      const moveListener = (eMove: TouchEvent) => {
         const newDist = getTouchPointsDistance(eMove.touches);
-
         const zoomValue = startZoomValue + (newDist - startDist) / 2;
 
         this.zoom(zoomValue, center);
@@ -501,14 +556,18 @@ class ImageViewer {
       }
 
       // assign events
-      events.pinchMove = assignEvent(document, 'touchmove', moveListener);
+      events.pinchMove = assignEvent(
+        document,
+        'touchmove',
+        moveListener as EventListener,
+      );
       events.pinchEnd = assignEvent(document, 'touchend', endListener);
     };
 
     this._events.pinchStart = assignEvent(
       imageWrap,
       'touchstart',
-      onPinchStart,
+      onPinchStart as EventListenerOrEventListenerObject,
     );
   }
 
@@ -519,10 +578,11 @@ class ImageViewer {
 
     let changedDelta = 0;
 
-    const onMouseWheel = e => {
+    const onMouseWheel = (e: WheelEvent) => {
       const { loaded, zoomValue } = this._state;
-
-      if (!_options.zoomOnMouseWheel || !loaded) return;
+      if (!_options.zoomOnMouseWheel || !loaded) {
+        return;
+      }
 
       // clear all animation frame and interval
       this._clearFrames();
@@ -530,7 +590,7 @@ class ImageViewer {
       // cross-browser wheel delta
       const delta = Math.max(
         -1,
-        Math.min(1, e.wheelDelta || -e.detail || -e.deltaY),
+        Math.min(1, (e as any).wheelDelta || -e.detail || -e.deltaY),
       );
 
       const newZoomValue = (zoomValue * (100 + delta * ZOOM_CONSTANT)) / 100;
@@ -563,18 +623,19 @@ class ImageViewer {
       this.showSnapView(null);
     };
 
-    this._ev = assignEvent(imageWrap, 'wheel', onMouseWheel);
+    this._ev = assignEvent(imageWrap, 'wheel', onMouseWheel as EventListener);
   }
 
   _doubleTapToZoom() {
     const { imageWrap } = this._elements;
     // handle double tap for zoom in and zoom out
-
     let touchTime = 0;
+    let point = {
+      x: 0,
+      y: 0,
+    };
 
-    let point;
-
-    const onDoubleTap = e => {
+    const onDoubleTap = (e: MouseEvent) => {
       if (touchTime === 0) {
         touchTime = Date.now();
         point = {
@@ -597,7 +658,11 @@ class ImageViewer {
       }
     };
 
-    assignEvent(imageWrap, 'click', onDoubleTap);
+    assignEvent(
+      imageWrap,
+      'click',
+      onDoubleTap as EventListenerOrEventListenerObject,
+    );
   }
 
   _getImageCurrentDim() {
@@ -613,7 +678,9 @@ class ImageViewer {
     const { imageSrc, hiResImageSrc } = _images;
     const { container, snapImageWrap, imageWrap } = _elements;
 
-    const ivLoader = container.querySelector('.iv-loader');
+    const ivLoader = container.querySelector(
+      '.iv-loader',
+    ) as HTMLElement | null;
 
     // remove old images
     remove(container.querySelectorAll('.iv-snap-image, .iv-image'));
@@ -623,9 +690,11 @@ class ImageViewer {
       tagName: 'img',
       className: 'iv-snap-image',
       src: imageSrc,
-      insertBefore: snapImageWrap.firstChild,
+      insertBefore: snapImageWrap
+        ? snapImageWrap.firstChild || undefined
+        : undefined,
       parent: snapImageWrap,
-    });
+    }) as HTMLImageElement;
 
     // add image
     const image = createElement({
@@ -633,7 +702,7 @@ class ImageViewer {
       className: 'iv-image iv-small-image',
       src: imageSrc,
       parent: imageWrap,
-    });
+    }) as HTMLImageElement;
 
     this._state.loaded = false;
 
@@ -641,7 +710,9 @@ class ImageViewer {
     this._elements.image = image;
     this._elements.snapImage = snapImage;
 
-    css(ivLoader, { display: 'block' });
+    if (ivLoader) {
+      css(ivLoader, { display: 'block' });
+    }
 
     // keep visibility hidden until image is loaded
     css(image, { visibility: 'hidden' });
@@ -650,8 +721,10 @@ class ImageViewer {
     this.hideSnapView();
 
     imgLoaded(image, () => {
-      // hide the iv loader
-      css(ivLoader, { display: 'none' });
+      if (ivLoader) {
+        // hide the iv loader
+        css(ivLoader, { display: 'none' });
+      }
 
       // show the image
       css(image, { visibility: 'visible' });
@@ -671,28 +744,36 @@ class ImageViewer {
       this.resetZoom();
     });
   }
-  _loadHighResImage(hiResImageSrc) {
-    const { imageWrap, container } = this._elements;
 
+  _loadHighResImage(hiResImageSrc: string) {
+    const { imageWrap } = this._elements;
     const lowResImg = this._elements.image;
+    const lowResImgStyleText = lowResImg ? lowResImg.style.cssText : undefined;
 
     const hiResImage = createElement({
       tagName: 'img',
       className: 'iv-image iv-large-image',
       src: hiResImageSrc,
       parent: imageWrap,
-      style: lowResImg.style.cssText,
-    });
+      style: lowResImgStyleText,
+    }) as HTMLImageElement;
 
     // add all the style attributes from lowResImg to highResImg
-    hiResImage.style.cssText = lowResImg.style.cssText;
+    if (lowResImgStyleText) {
+      hiResImage.style.cssText = lowResImgStyleText;
+    }
 
-    this._elements.image = container.querySelectorAll('.iv-image');
+    // TODO: Not sure what it's going on here, results of querySelectorAll is an array and why not set hiResImageSrc to _elements.image?
+    // this._elements.image = container.querySelectorAll('.iv-image');
 
     imgLoaded(hiResImage, () => {
       // remove the low size image and set this image as default image
-      remove(lowResImg);
+      if (lowResImg) {
+        remove(lowResImg);
+      }
       this._elements.image = hiResImage;
+
+      // TODO: Not sure next line is commented in original code base
       // this._calculateDimensions();
     });
   }
@@ -705,12 +786,16 @@ class ImageViewer {
       zoomHandle,
     } = this._elements;
 
-    // calculate content width of image and snap image
-    const imageWidth = parseInt(css(image, 'width'), 10);
-    const imageHeight = parseInt(css(image, 'height'), 10);
+    if (!image) {
+      return;
+    }
 
-    const contWidth = parseInt(css(container, 'width'), 10);
-    const contHeight = parseInt(css(container, 'height'), 10);
+    // calculate content width of image and snap image
+    const imageWidth = parseInt(css(image, 'width') as string, 10);
+    const imageHeight = parseInt(css(image, 'height') as string, 10);
+
+    const contWidth = parseInt(css(container, 'width') as string, 10);
+    const contHeight = parseInt(css(container, 'height') as string, 10);
 
     const snapViewWidth = snapView.clientWidth;
     const snapViewHeight = snapView.clientHeight;
@@ -765,14 +850,17 @@ class ImageViewer {
       h: snapHeight,
     };
 
-    css(snapImage, {
-      width: `${snapWidth}px`,
-      height: `${snapHeight}px`,
-    });
+    if (snapImage) {
+      css(snapImage, {
+        width: `${snapWidth}px`,
+        height: `${snapHeight}px`,
+      });
+    }
 
     // calculate zoom slider area
     this._state.zoomSliderLength = snapViewWidth - zoomHandle.offsetWidth;
   }
+
   resetZoom(animate = true) {
     const { zoomValue } = this._options;
 
@@ -782,7 +870,8 @@ class ImageViewer {
 
     this.zoom(zoomValue);
   }
-  zoom = (perc, point?) => {
+
+  zoom = (perc: number, point?) => {
     const { _options, _elements, _state } = this;
     const {
       zoomValue: curPerc,
@@ -792,6 +881,9 @@ class ImageViewer {
     } = _state;
     const { image, zoomHandle } = _elements;
     const { maxZoom } = _options;
+    if (!image) {
+      return;
+    }
 
     perc = Math.round(Math.max(100, perc));
     perc = Math.min(maxZoom, perc);
@@ -801,14 +893,13 @@ class ImageViewer {
       y: containerDim.h / 2,
     };
 
-    const curLeft = parseFloat(css(image, 'left'));
-    const curTop = parseFloat(css(image, 'top'));
+    const curLeft = parseFloat(css(image, 'left') as string);
+    const curTop = parseFloat(css(image, 'top') as string);
 
     // clear any panning frames
     this._clearFrames();
 
     let step = 0;
-
     const baseLeft = (containerDim.w - imageDim.w) / 2;
     const baseTop = (containerDim.h - imageDim.h) / 2;
     const baseRight = containerDim.w - baseLeft;
@@ -816,7 +907,6 @@ class ImageViewer {
 
     const zoom = () => {
       step++;
-
       if (step < 16) {
         this._frames.zoomFrame = requestAnimationFrame(zoom);
       }
@@ -851,7 +941,6 @@ class ImageViewer {
       });
 
       this._state.zoomValue = tickZoom;
-
       this._resizeSnapHandle(imgWidth, imgHeight, newLeft, newTop);
 
       // update zoom handle position
@@ -862,6 +951,7 @@ class ImageViewer {
 
     zoom();
   };
+
   _clearFrames = () => {
     const { slideMomentumCheck, sliderMomentumFrame, zoomFrame } = this._frames;
     clearInterval(slideMomentumCheck);
@@ -869,15 +959,23 @@ class ImageViewer {
     cancelAnimationFrame(zoomFrame);
   };
 
-  _resizeSnapHandle = (imgWidth, imgHeight, imgLeft, imgTop) => {
+  _resizeSnapHandle = (
+    imgWidth: number,
+    imgHeight: number,
+    imgLeft: number,
+    imgTop: number,
+  ) => {
     const { _elements, _state } = this;
     const { snapHandle, image } = _elements;
+    if (!image) {
+      return;
+    }
     const { imageDim, containerDim, zoomValue, snapImageDim } = _state;
 
     const imageWidth = imgWidth || (imageDim.w * zoomValue) / 100;
     const imageHeight = imgHeight || (imageDim.h * zoomValue) / 100;
-    const imageLeft = imgLeft || parseFloat(css(image, 'left'));
-    const imageTop = imgTop || parseFloat(css(image, 'top'));
+    const imageLeft = imgLeft || parseFloat(css(image, 'left') as string);
+    const imageTop = imgTop || parseFloat(css(image, 'top') as string);
 
     const left = (-imageLeft * snapImageDim.w) / imageWidth;
     const top = (-imageTop * snapImageDim.h) / imageHeight;
@@ -897,38 +995,39 @@ class ImageViewer {
       h: handleHeight,
     };
   };
-  showSnapView = noTimeout => {
+
+  showSnapView = (noTimeout: boolean | null) => {
     const { snapViewVisible, zoomValue, loaded } = this._state;
     const { snapView } = this._elements;
 
     if (!this._options.snapView) {
       return;
     }
-
     if (snapViewVisible || zoomValue <= 100 || !loaded) {
       return;
     }
 
     clearTimeout(this._frames.snapViewTimeout);
-
     this._state.snapViewVisible = true;
-
     css(snapView, { opacity: 1, pointerEvents: 'inherit' });
 
     if (!noTimeout) {
       this._frames.snapViewTimeout = setTimeout(this.hideSnapView, 1500);
     }
   };
+
   hideSnapView = () => {
     const { snapView } = this._elements;
     css(snapView, { opacity: 0, pointerEvents: 'none' });
     this._state.snapViewVisible = false;
   };
+
   refresh = () => {
     this._calculateDimensions();
     this.resetZoom();
   };
-  load(imageSrc, hiResImageSrc) {
+
+  load(imageSrc: string, hiResImageSrc: string) {
     this._images = {
       imageSrc,
       hiResImageSrc,
@@ -953,13 +1052,16 @@ class ImageViewer {
     this._clearFrames();
 
     // remove html from the container
-    remove(container.querySelector('.iv-wrap'));
+    const ivWrap = container.querySelector('.iv-wrap');
+    if (ivWrap) {
+      remove(ivWrap as HTMLElement);
+    }
 
     // remove iv-container class from container
     removeClass(container, 'iv-container');
 
     // remove added style from container
-    removeCss(document.querySelector('html'), 'relative');
+    removeCss(document.querySelector('html') as HTMLElement, 'relative');
 
     // if container has original image, unwrap the image and remove the class
     // which will happen when domElement is not the container
@@ -968,8 +1070,6 @@ class ImageViewer {
     }
 
     // remove imageViewer reference from dom element
-    domElement._imageViewer = null;
+    delete domElement.dataset[DATA_VIEWER];
   }
 }
-
-export default ImageViewer;

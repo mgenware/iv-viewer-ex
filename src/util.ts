@@ -29,7 +29,7 @@ export interface CreateElementOptions {
   src?: string;
   style?: string;
   child?: HTMLElement;
-  insertBefore?: HTMLElement;
+  insertBefore?: HTMLElement | Node | ChildNode;
 }
 
 export function createElement(options: CreateElementOptions) {
@@ -105,7 +105,7 @@ export function toArray(
 export function css(
   elements: NodeList | HTMLCollection | HTMLElement,
   properties: string | { [key: string]: string | number },
-): string | number | undefined {
+): string | undefined {
   const elmArray = toArray(elements);
 
   if (typeof properties === 'string') {
@@ -169,7 +169,7 @@ export function clamp(num: number, min: number, max: number) {
 }
 
 export function assignEvent(
-  element: HTMLElement,
+  element: HTMLElement | Window | Document,
   events: string | string[],
   handler: EventListenerOrEventListenerObject,
 ) {
@@ -185,11 +185,22 @@ export function assignEvent(
   };
 }
 
-export function getTouchPointsDistance(touches: Touch[]) {
+export function getTouchPointsDistance(touches: TouchList) {
   const touch0 = touches[0];
   const touch1 = touches[1];
   return Math.sqrt(
     Math.pow(touch1.pageX - touch0.pageX, 2) +
       Math.pow(touch1.pageY - touch0.pageY, 2),
   );
+}
+
+export function mustQuerySelector(
+  element: HTMLElement,
+  selector: string,
+): HTMLElement {
+  const result = element.querySelector(selector);
+  if (!result) {
+    throw new Error(`The selector "${selector}" does not match any element`);
+  }
+  return result as HTMLElement;
 }

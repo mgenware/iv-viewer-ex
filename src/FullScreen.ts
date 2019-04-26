@@ -7,8 +7,6 @@ const fullScreenHtml = `
 `;
 
 class FullScreenViewer extends ImageViewer {
-  _elements: any;
-
   // @ts-ignore
   constructor(options = {}) {
     const fullScreenElem = createElement({
@@ -18,7 +16,9 @@ class FullScreenViewer extends ImageViewer {
       parent: document.body,
     });
 
-    const container = fullScreenElem.querySelector('.iv-fullscreen-container');
+    const container = fullScreenElem.querySelector(
+      '.iv-fullscreen-container',
+    ) as HTMLElement;
 
     // call the ImageViewer constructor
     super(container, { ...options, refreshOnResize: false });
