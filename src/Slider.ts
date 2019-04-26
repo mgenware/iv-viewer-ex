@@ -30,8 +30,8 @@ export default class Slider {
   onEnd: () => void;
   touchMoveEvent?: string;
   touchEndEvent?: string;
-  sx: any;
-  sy: any;
+  sx = 0;
+  sy = 0;
 
   constructor(
     container: HTMLElement,

@@ -18,6 +18,7 @@ import {
 import * as imgLoadedProxy from 'imagesloaded';
 // Fix F* dumb rollup cannot handle typescript export
 const imgLoaded: ImagesLoaded.ImagesLoadedConstructor =
+  // tslint:disable-next-line no-any
   (imgLoadedProxy as any).default || imgLoadedProxy;
 
 import Slider, { SliderPosition } from './Slider';
@@ -41,6 +42,11 @@ const DATA_VIEWER = '_image_viewer';
 export interface Point {
   x: number;
   y: number;
+}
+
+export interface Size {
+  w: number;
+  h: number;
 }
 
 export interface ImageViewerOptions {
@@ -84,19 +90,35 @@ export default class ImageViewer {
     fullScreen?: HTMLElement; // Used by FullScreen.ts
   };
   _options: InternalOptions;
-  _events: any;
-  _frames: any;
+  _events: { [key: string]: () => void };
+  _frames: {
+    slideMomentumCheck?: NodeJS.Timeout;
+    snapViewTimeout?: NodeJS.Timeout;
+    sliderMomentumFrame?: number;
+    zoomFrame?: number;
+  };
   _sliders: {
     imageSlider: Slider;
     snapSlider: Slider;
     zoomSlider: Slider;
   };
-  _state: any;
+  _state: {
+    zoomValue: number;
+    zoomSliderLength: number;
+    loaded: boolean;
+
+    snapViewVisible?: boolean;
+    zooming?: boolean;
+    containerDim?: Size;
+    imageDim?: Size;
+    snapImageDim?: Size;
+    snapHandleDim?: Size;
+  };
   _images: {
     imageSrc: string;
     hiResImageSrc: string;
   };
-  _ev: any;
+  _ev?: () => void;
 
   constructor(element: HTMLElement, options: ImageViewerOptions = {}) {
     const {
@@ -117,6 +139,8 @@ export default class ImageViewer {
     // maintain current state
     this._state = {
       zoomValue: this._options.zoomValue,
+      zoomSliderLength: 0,
+      loaded: true,
     };
 
     this._images = {
@@ -286,6 +310,9 @@ export default class ImageViewer {
       onMove: (e, position) => {
         const { snapImageDim } = this._state;
         const { snapSlider } = this._sliders;
+        if (!snapImageDim) {
+          throw new Error('Missing size info in state');
+        }
 
         const imageCurrentDim = this._getImageCurrentDim();
         currentPos = position;
@@ -315,6 +342,9 @@ export default class ImageViewer {
         const yDiff = (positions[1].y || NaN) - (positions[0].y || NaN);
 
         const momentum = () => {
+          if (!snapImageDim) {
+            throw new Error('Missing size info in state');
+          }
           if (step <= 60) {
             this._frames.sliderMomentumFrame = requestAnimationFrame(momentum);
           }
@@ -359,8 +389,8 @@ export default class ImageViewer {
         startHandleLeft = parseFloat(css(snapHandle, 'left') as string);
 
         // stop momentum on image
-        clearInterval(slideMomentumCheck);
-        cancelAnimationFrame(sliderMomentumFrame);
+        clearInterval(slideMomentumCheck!);
+        cancelAnimationFrame(sliderMomentumFrame!);
       },
       onMove: (_, position) => {
         if (!position) {
@@ -368,6 +398,9 @@ export default class ImageViewer {
         }
         const { snapHandleDim, snapImageDim } = this._state;
         const { image } = this._elements;
+        if (!snapHandleDim || !snapImageDim) {
+          throw new Error('Missing size info in state');
+        }
 
         const imageCurrentDim = this._getImageCurrentDim();
 
@@ -440,6 +473,7 @@ export default class ImageViewer {
         const { maxZoom } = this._options;
         const { zoomSliderLength } = this._state;
         const pageX =
+          // tslint:disable-next-line no-any
           (e as any).pageX !== undefined
             ? (e as MouseEvent).pageX
             : (e as TouchEvent).touches[0].pageX;
@@ -592,6 +626,7 @@ export default class ImageViewer {
       // cross-browser wheel delta
       const delta = Math.max(
         -1,
+        // tslint:disable-next-line no-any
         Math.min(1, (e as any).wheelDelta || -e.detail || -e.deltaY),
       );
 
@@ -669,6 +704,9 @@ export default class ImageViewer {
 
   _getImageCurrentDim() {
     const { zoomValue, imageDim } = this._state;
+    if (!imageDim) {
+      throw new Error('Missing size info in state');
+    }
     return {
       w: imageDim.w * (zoomValue / 100),
       h: imageDim.h * (zoomValue / 100),
@@ -774,11 +812,10 @@ export default class ImageViewer {
         remove(lowResImg);
       }
       this._elements.image = hiResImage;
-
-      // TODO: Not sure next line is commented in original code base
-      // this._calculateDimensions();
+      this._calculateDimensions();
     });
   }
+
   _calculateDimensions() {
     const {
       image,
@@ -886,6 +923,9 @@ export default class ImageViewer {
     if (!image) {
       return;
     }
+    if (!containerDim || !imageDim) {
+      throw new Error('Missing size info in state');
+    }
 
     perc = Math.round(Math.max(100, perc));
     perc = Math.min(maxZoom, perc);
@@ -960,9 +1000,9 @@ export default class ImageViewer {
 
   _clearFrames = () => {
     const { slideMomentumCheck, sliderMomentumFrame, zoomFrame } = this._frames;
-    clearInterval(slideMomentumCheck);
-    cancelAnimationFrame(sliderMomentumFrame);
-    cancelAnimationFrame(zoomFrame);
+    clearInterval(slideMomentumCheck!);
+    cancelAnimationFrame(sliderMomentumFrame!);
+    cancelAnimationFrame(zoomFrame!);
   };
 
   _resizeSnapHandle = (
@@ -977,6 +1017,9 @@ export default class ImageViewer {
       return;
     }
     const { imageDim, containerDim, zoomValue, snapImageDim } = _state;
+    if (!imageDim || !snapImageDim || !containerDim) {
+      throw new Error(`Missing size info in state`);
+    }
 
     const imageWidth = imgWidth || (imageDim.w * zoomValue) / 100;
     const imageHeight = imgHeight || (imageDim.h * zoomValue) / 100;
@@ -1013,7 +1056,7 @@ export default class ImageViewer {
       return;
     }
 
-    clearTimeout(this._frames.snapViewTimeout);
+    clearTimeout(this._frames.snapViewTimeout!);
     this._state.snapViewVisible = true;
     css(snapView, { opacity: 1, pointerEvents: 'inherit' });
 
@@ -1045,12 +1088,12 @@ export default class ImageViewer {
   destroy() {
     const { container, domElement } = this._elements;
     // destroy all the sliders
-    Object.values(this._sliders).forEach((slider: any) => {
+    Object.values(this._sliders).forEach(slider => {
       slider.destroy();
     });
 
     // unbind all events
-    Object.values(this._events).forEach((unbindEvent: any) => {
+    Object.values(this._events).forEach(unbindEvent => {
       unbindEvent();
     });
 

@@ -114,6 +114,7 @@ export function css(
 
   elmArray.forEach(element => {
     Object.entries(properties).forEach(([key, value]) => {
+      // tslint:disable-next-line no-any
       (element.style as any)[key] = value;
     });
   });
@@ -125,10 +126,18 @@ export function removeCss(element: HTMLElement, property: string) {
   element.style.removeProperty(property);
 }
 
+export interface WrapOptions {
+  tag?: string;
+  className?: string;
+  id?: string;
+  style?: { [key: string]: string | number };
+}
+
 export function wrap(
   element: HTMLElement,
-  { tag = 'div', className, id, style }: any,
+  { tag, className, id, style }: WrapOptions,
 ) {
+  tag = tag || 'div';
   const wrapper = document.createElement(tag);
   if (className) {
     wrapper.className = className;
@@ -137,7 +146,7 @@ export function wrap(
     wrapper.id = id;
   }
   if (style) {
-    wrapper.style = style;
+    css(wrapper, style);
   }
   if (element.parentNode) {
     element.parentNode.insertBefore(wrapper, element);

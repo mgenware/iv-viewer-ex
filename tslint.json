@@ -9,7 +9,7 @@
     "ordered-imports": false,
     "object-literal-sort-keys": false,
     "max-classes-per-file": false,
-    "no-any": false,
+    "no-any": true,
     "strict-type-predicates": true,
     "variable-name": false,
     "max-line-length": false,
