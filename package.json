@@ -1,6 +1,6 @@
 {
   "name": "iv-viewer-ex",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A fork of the original iv-viewer (https://github.com/s-yadav/iv-viewer)",
   "main": "dist/main.js",
   "repository": {
