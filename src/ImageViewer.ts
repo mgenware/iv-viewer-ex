@@ -208,10 +208,8 @@ export default class ImageViewer {
 
     let container = domElement;
     if (domElement.tagName.toLowerCase() === 'img') {
-      console.log(domElement);
       imageSrc =
         (domElement as HTMLImageElement).getAttribute('src') || 'NLLLL';
-      console.log(' src ', imageSrc);
       hiResImageSrc =
         domElement.getAttribute('high-res-src') ||
         domElement.getAttribute('data-high-res-src') ||
