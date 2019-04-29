@@ -23,6 +23,7 @@ const tasks = [
     output: {
       name: 'ivViewerEx',
       file: 'dist/main.js',
+      sourcemap: true,
       format: 'umd',
       exports: 'named',
     },

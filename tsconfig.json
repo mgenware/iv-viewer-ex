@@ -3,7 +3,7 @@
       "module": "esnext",
       "removeComments": true,
       "preserveConstEnums": true,
-      "sourceMap": false,
+      "sourceMap": true,
       "target": "es5",
       "declaration": true,
       "strict": true,
